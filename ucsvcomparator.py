@@ -22,14 +22,31 @@ class MainWindow(qtw.QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         # table1
+        # self.textedit1 = qtw.QTextEdit()
+        # font = self.textedit1.font()
+        # font.setFamily("Courier")
+        # font.setPointSize(12)
+        # self.textedit1.setFont(font)
+        # # self.textedit1.setTabStopWidth(4)
+        # table_layout.addWidget(self.textedit1)
+
         self.table1 = qtw.QTableWidget()
         self.table1.setSortingEnabled(True)
         table_layout.addWidget(self.table1)
 
         # table2
+        # self.textedit2 = qtw.QTextEdit(lineWrapMode=qtw.QTextEdit.LineWrapMode.NoWrap)
+        # table_layout.addWidget(self.textedit2)
         self.table2 = qtw.QTableWidget()
         self.table2.setSortingEnabled(True)
         table_layout.addWidget(self.table2)
+
+        # scroll
+        # self.textedit1.verticalScrollBar().valueChanged.connect(self.textedit2.verticalScrollBar().setValue)
+        # self.textedit2.verticalScrollBar().valueChanged.connect(self.textedit1.verticalScrollBar().setValue)
+        #
+        # self.textedit1.horizontalScrollBar().valueChanged.connect(self.textedit2.horizontalScrollBar().setValue)
+        # self.textedit2.horizontalScrollBar().valueChanged.connect(self.textedit1.horizontalScrollBar().setValue)
 
         # scroll
         self.table1.verticalScrollBar().valueChanged.connect(self.table2.verticalScrollBar().setValue)
@@ -40,8 +57,8 @@ class MainWindow(qtw.QMainWindow):
 
         # sorting
         self.table1.horizontalHeader().sectionClicked.connect(self.sort_data)
-        # self.table1.horizontalHeader().sectionClicked.connect(self.table2.sortByColumn)
-        # self.table2.horizontalHeader().sectionClicked.connect(self.table1.sortByColumn)
+        self.table1.horizontalHeader().sectionClicked.connect(self.table2.sortByColumn)
+        self.table2.horizontalHeader().sectionClicked.connect(self.table1.sortByColumn)
 
         dock = qtw.QDockWidget('Files to Compare')
         dock.setFeatures(qtw.QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
@@ -112,30 +129,50 @@ class MainWindow(qtw.QMainWindow):
         # except Exception as e:
         #     print('Something wrong...........', e)
 
-    def create_table_data(self, file_path, table, csvdata):
-        print('column count:', len(csvdata[0]));
-        table.setColumnCount(len(csvdata[0]))
 
-        print('header:', csvdata[0]);
-        table.setHorizontalHeaderLabels(csvdata[0])
-        for header in csvdata[0]:
-            self.column_list.addItem(header)
 
-        table.setRowCount(len(csvdata) - 1)
+    def loadCSV(self, filename, sorted_col, delimeter, tablewidget):
+        if filename:
+            pddataframe = p.read_csv(str(filename), sep=delimeter, encoding='utf-8', header=None, na_filter=False)
+            print('Successfully load....')
+            headers = pddataframe.values.tolist()[0]
+            print('header:', headers)
+            print('column count:', len(headers));
+            tablewidget.setColumnCount(len(headers))
+            tablewidget.setHorizontalHeaderLabels(headers)
+            print('Successfully header....')
+            # for header in headers:
+            #     self.column_list.addItem(header)
 
-        # row = 0
-        # for r in csvdata:
-        #     #print('row:', row)
-        #     col = 0
-        #     for c in r:
-        #         #print('column: ', col, 'columnData: ', c)
-        #         if row != 0:
-        #             table.setItem(row - 1, col, qtw.QTableWidgetItem(str(c)))
-        #             col += 1
-        #     row += 1
-        # print(csvData)
-        print('column counts: ', len(csvdata[0]))
-        print('csvData length: ', len(csvdata))
+            alldata = pddataframe.values.tolist()
+            print('before del:', len(alldata))
+            del alldata[0]
+            print('after del:', len(alldata))
+            # pddataframe.sort_values(pddataframe.columns[sorted_col], ascending=True,inplace=True)
+            # print('Successfully sort....')
+            # print('type():', type(pddataframe.to_string()))
+            # split DataFrame into chunks
+
+
+            # texteditor.setPlainText(pddataframe.astype('string').to_string())
+            # print('Successfully set text')
+            # print(pddataframe)
+            # return pddataframe.values.tolist()
+
+
+            # Step 2: Create a QThread object
+            self.thread = qtc.QThread()
+            # Step 3: Create a worker object
+            self.worker = Worker(pddataframe, tablewidget)
+            # Step 4: Move worker to the thread
+            self.worker.moveToThread(self.thread)
+            # Step 5: Connect signals and slots
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
+            # Step 6: Start the thread
+            self.thread.start()
 
     def open_file1_dialog(self):
         filename, ok = qtw.QFileDialog.getOpenFileName(
@@ -146,16 +183,17 @@ class MainWindow(qtw.QMainWindow):
         print('filename: ', filename, ' ok:', ok)
         try:
             if filename:
-                path = Path(filename)
-                self.file_1.setText(str(path))
-                print('path:', str(path), 'delimeter:', self.delimeter.text())
-                csvfile = open(str(path))
-                print('csvfile:', os.path.normpath('file://' + str(path)))
-                pddataframe = p.read_csv(str(path), sep=self.delimeter.text(),encoding='utf-8',header=None,na_filter=False)
-                # print('type(csvdata):', type(pddataframe))
-                self.csvdata1 = pddataframe.values.tolist()
-                # print('csvdata1:', self.csvdata1)
-                self.create_table_data(self.file_1.text(), self.table1, self.csvdata1)
+                self.loadCSV(filename,0,self.delimeter.text(), self.table1)
+                # path = Path(filename)
+                # self.file_1.setText(str(path))
+                # print('path:', str(path), 'delimeter:', self.delimeter.text())
+                # csvfile = open(str(path))
+                # print('csvfile:', os.path.normpath('file://' + str(path)))
+                # pddataframe = p.read_csv(str(path), sep=self.delimeter.text(),encoding='utf-8',header=None,na_filter=False)
+                # # print('type(csvdata):', type(pddataframe))
+                # self.csvdata1 = pddataframe.values.tolist()
+                # # print('csvdata1:', self.csvdata1)
+                # self.create_table_data(self.file_1.text(), self.table1, self.csvdata1)
         except Exception as e:
             print('Error:', type(e).__name__, e.args)
 
@@ -175,6 +213,50 @@ class MainWindow(qtw.QMainWindow):
             self.csvdata2 = list(csvreader)
 
         self.create_table_data(self.file_2.text(), self.table2, self.csvdata2)
+
+
+class Worker(qtc.QObject):
+    finished = qtc.pyqtSignal()
+
+    def __init__(self, df, table):
+        super(Worker, self).__init__()
+        self.df = df
+        self.table = table
+
+    def run(self):
+        """Long-running task."""
+        n = 10000
+        list_df = [self.df[i:i + n] for i in range(0, len(self.df), n)]
+        try:
+            for index in range(len(list_df)):
+                print("Start Chunk", index, 'type(chunk):', type(list_df[index]), 'dir', dir(list_df[index]))
+                ddf = list_df[index].values
+                self.create_table_data(self.table, ddf)
+        except Exception as e:
+            print('Loop Error:', type(e), e)
+
+        self.finished.emit()
+
+    def create_table_data(self, table, csvdatas):
+        #print('csvdatas:', csvdatas)
+        print('column count:', len(csvdatas[0]))
+        print('row count:', len(csvdatas))
+
+        try:
+            row = table.rowCount()
+            print('current row:', row)
+            for r in csvdatas:
+                #print('creating row:', row)
+                table.insertRow(row)
+                col = 0
+                for c in r:
+                    table.setItem(row, col, qtw.QTableWidgetItem(str(c)))
+                    col += 1
+                row += 1
+        except BaseException as e:
+            print('Error when creating table:', type(e), e)
+        # print('column counts: ', len(csvdata[0]))
+        # print('csvData length: ', len(csvdata))
 
 if __name__ == '__main__':
     app = qtw.QApplication(sys.argv)
