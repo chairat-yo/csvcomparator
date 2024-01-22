@@ -161,18 +161,18 @@ class MainWindow(qtw.QMainWindow):
 
 
             # Step 2: Create a QThread object
-            self.thread = qtc.QThread()
+            self.worker_thread = qtc.QThread()
             # Step 3: Create a worker object
             self.worker = Worker(pddataframe, tablewidget)
             # Step 4: Move worker to the thread
-            self.worker.moveToThread(self.thread)
+            self.worker.moveToThread(self.worker_thread)
             # Step 5: Connect signals and slots
-            self.thread.started.connect(self.worker.run)
-            self.worker.finished.connect(self.thread.quit)
-            self.worker.finished.connect(self.worker.deleteLater)
-            self.thread.finished.connect(self.thread.deleteLater)
+            self.worker_thread.started.connect(self.worker.run)
+            # self.worker.finished.connect(self.thread.quit)
+            # self.worker.finished.connect(self.worker.deleteLater)
+            # self.thread.finished.connect(self.thread.deleteLater)
             # Step 6: Start the thread
-            self.thread.start()
+            self.worker_thread.start()
 
     def open_file1_dialog(self):
         filename, ok = qtw.QFileDialog.getOpenFileName(
@@ -216,7 +216,7 @@ class MainWindow(qtw.QMainWindow):
 
 
 class Worker(qtc.QObject):
-    finished = qtc.pyqtSignal()
+    create_cell = qtc.pyqtSignal(int, int, str)
 
     def __init__(self, df, table):
         super(Worker, self).__init__()
@@ -225,17 +225,19 @@ class Worker(qtc.QObject):
 
     def run(self):
         """Long-running task."""
-        n = 10000
-        list_df = [self.df[i:i + n] for i in range(0, len(self.df), n)]
+        n = 1000
+        self.list_df = [self.df[i:i + n] for i in range(1, len(self.df) - 1, n)]
+        print('list_df(chucks):', len(self.list_df))
         try:
-            for index in range(len(list_df)):
-                print("Start Chunk", index, 'type(chunk):', type(list_df[index]), 'dir', dir(list_df[index]))
-                ddf = list_df[index].values
+            for index in range(len(self.list_df)):
+                print("Start Chunk", index, 'type(chunk):', type(self.list_df[index]), 'dir', dir(self.list_df[index]))
+                ddf = self.list_df[index].values
                 self.create_table_data(self.table, ddf)
+            # self.finished.emit()
         except Exception as e:
             print('Loop Error:', type(e), e)
 
-        self.finished.emit()
+        print('total rows:', len(self.df))
 
     def create_table_data(self, table, csvdatas):
         #print('csvdatas:', csvdatas)
@@ -247,16 +249,17 @@ class Worker(qtc.QObject):
             print('current row:', row)
             for r in csvdatas:
                 #print('creating row:', row)
-                table.insertRow(row)
+                # table.insertRow(row)
                 col = 0
                 for c in r:
-                    table.setItem(row, col, qtw.QTableWidgetItem(str(c)))
+                    # print('creating....row:', row,'col:', col, 'data:', c)
+                    # table.setItem(row, col, qtw.QTableWidgetItem(str(c)))
                     col += 1
                 row += 1
-        except BaseException as e:
+        except Exception as e:
             print('Error when creating table:', type(e), e)
         # print('column counts: ', len(csvdata[0]))
-        # print('csvData length: ', len(csvdata))
+        # print('/csvData length: ', len(csvdata))
 
 if __name__ == '__main__':
     app = qtw.QApplication(sys.argv)
