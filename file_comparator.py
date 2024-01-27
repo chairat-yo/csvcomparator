@@ -2,6 +2,7 @@ import os.path
 import sys
 import csv
 import time
+import diff_match_patch as dmp_module
 import difflib as dl
 import pandas as p
 from PyQt6 import QtWidgets as qtw
@@ -18,6 +19,15 @@ class MainWindow(qtw.QMainWindow):
         self.setWindowIcon(qtg.QIcon('./assets/usergroup.png'))
         self.setGeometry(100, 100, 1080, 600)
 
+        #Courier, Courier New, Lucida Console, Monaco, and Consolas.
+        stylesheet = """
+        QWidget {
+            font-size: 13px;
+            font-family: Courier;
+        }
+        """
+        self.setStyleSheet(stylesheet)
+
         table_layout = qtw.QHBoxLayout()
         self.central_widget = qtw.QWidget(self)
         self.central_widget.setLayout(table_layout)
@@ -25,13 +35,7 @@ class MainWindow(qtw.QMainWindow):
 
         # Result Text Edit
         self.result_text = qtw.QPlainTextEdit()
-        font = self.result_text.font()
-        # font.setFamily("Courier")
-        font.setPointSize(8)
-        self.result_text.setFont(font)
         self.result_text.setLineWrapMode(qtw.QPlainTextEdit.LineWrapMode.NoWrap)
-        # self.textedit1.setLineWrapMode(qtw.QTextEdit.LineWrapMode.FixedPixelWidth)
-        self.result_text.setTabStopDistance(4)
         table_layout.addWidget(self.result_text)
 
         dock = qtw.QDockWidget('Files to Compare')
@@ -46,28 +50,28 @@ class MainWindow(qtw.QMainWindow):
         layout = qtw.QFormLayout(form)
         form.setLayout(layout)
 
-        # row1
+        # file 1
         self.file_1 = qtw.QLineEdit('', form, placeholderText="File1")
         self.file_1.setMinimumWidth(300)
         btn_file_1 = qtw.QPushButton('Browse')
         btn_file_1.clicked.connect(self.open_file1_dialog)
         layout.addRow(self.file_1, btn_file_1)
 
-        # row2
+        # file 2
         self.file_2 = qtw.QLineEdit('', form, placeholderText="File2")
         self.file_2.setMinimumWidth(300)
         btn_file_2 = qtw.QPushButton('Browse')
         btn_file_2.clicked.connect(self.open_file2_dialog)
         layout.addRow(self.file_2, btn_file_2)
 
-        # row3
+        # compare
         btn_compare = qtw.QPushButton('Compare')
         btn_compare.clicked.connect(self.compare_file)
         layout.addRow(btn_compare)
 
-        sort_enable = qtw.QCheckBox("Sort", self)
-        sort_enable.setChecked(True)
-        layout.addRow(sort_enable)
+        self.sort_enable = qtw.QCheckBox("Sort", self)
+        self.sort_enable.setChecked(True)
+        layout.addRow(self.sort_enable)
 
         # add toolbar
         toolbar = qtw.QToolBar('main toolbar')
@@ -79,46 +83,32 @@ class MainWindow(qtw.QMainWindow):
     def compare_file(self):
         with open(self.file_1.text(), 'r') as file1:
             file1_contents = file1.readlines()
+        self.result_text.appendPlainText(f'Loading file {self.file_1.text()}....Completed')
         with open(self.file_2.text(), 'r') as file2:
             file2_contents = file2.readlines()
+        self.result_text.appendPlainText(f'Loading file {self.file_2.text()}....Completed')
 
-        file1_contents.sort()
-        # for i in range(len(file1_contents)):
-        #     print(file1_contents[i])
+        if self.sort_enable.isChecked():
+            file1_contents.sort()
+            self.result_text.appendPlainText('File1 sorted...........')
+            file2_contents.sort()
+            self.result_text.appendPlainText('File2 sorted...........')
 
-        print('-----------------------')
-        file2_contents.sort()
-        # for i in range(len(file2_contents)):
-        #     print(file2_contents[i])
+        # diff = dl.HtmlDiff().make_table(file1_contents, file2_contents, self.file_1.text(), self.file_2.text())
+        # f = open('./result.html', 'w')
+        # f.write(diff)
+        # f.close()
+        # self.result_text.appendPlainText('Completed result file....')
 
-        diff = dl.unified_diff(
-            file1_contents, file2_contents)
-        # diff = dl.unified_diff(
-        #     file1_contents, file2_contents, fromfile="file1.txt",
-        #     tofile="file2.txt", lineterm='')
-
-        print('file1:', type(file1), 'diff:', type(diff))
-
-        for line in diff:
-            self.result_text.appendPlainText(line)
-            # print(line)
-    def sort_data(self, col_index):
-        print('SORT...............',)
         try:
-            #self.table1.header_clicked.emit(col_index)
-            self.column_list.setCurrentIndex(col_index)
+            diff = dl.ndiff(file1_contents, file2_contents)
+            changes = [l for l in diff if l.startswith('+ ') or l.startswith('- ') or l.startswith('? ')]
+            for line in changes:
+                self.result_text.appendPlainText(line)
         except Exception as e:
-            print('type(e):', type(e), 'e:', e)
-        # try:
-        #     self.table2.sortByColumn(col_index, self.sort_order)
-        #     if self.sort_order == qtc.Qt.SortOrder.AscendingOrder:
-        #         self.sort_order = qtc.Qt.SortOrder.DescendingOrder
-        #     else:
-        #         self.sort_order = qtc.Qt.SortOrder.AscendingOrder
-        #
-        # except Exception as e:
-        #     print('Something wrong...........', e)
+            print('Error:', type(e), e)
 
+        self.result_text.moveCursor(qtg.QTextCursor.MoveOperation.Start)
 
     def getCSVHeader(self, filename, delimeter):
         try:
@@ -130,13 +120,6 @@ class MainWindow(qtw.QMainWindow):
                 self.header_list.addItems(header_list)
         except Exception as e:
             print('Exception:', type(e), e)
-
-    # def compare_csv(self):
-    #     from csv_diff import load_csv, compare
-    #     diff = compare(
-    #         load_csv(open("one.csv"), key="id"),
-    #         load_csv(open("two.csv"), key="id")
-    #     )
 
     def open_file1_dialog(self):
         self.filename1, ok = qtw.QFileDialog.getOpenFileName(
@@ -183,6 +166,7 @@ class MainWindow(qtw.QMainWindow):
 
 if __name__ == '__main__':
     app = qtw.QApplication(sys.argv)
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
