@@ -105,6 +105,9 @@ class MainWindow(qtw.QMainWindow):
             changes = [l for l in diff if l.startswith('+ ') or l.startswith('- ') or l.startswith('? ')]
             for line in changes:
                 self.result_text.appendPlainText(line)
+
+            # highlightCursor = qtg.QTextCursor(self.result_text.document())
+            # cursor = qtg.QTextCursor(self.result_text.document())
         except Exception as e:
             print('Error:', type(e), e)
 
@@ -136,7 +139,6 @@ class MainWindow(qtw.QMainWindow):
             "D:\\icons\\avatar\\"
         )
         self.file_2.setText(self.filename2)
-
 
 # class Worker(qtc.QThread):
 #     create_rows = qtc.pyqtSignal(list, qtw.QWidget)
